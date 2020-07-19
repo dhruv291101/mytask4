@@ -343,7 +343,7 @@
     "    return cv2.imread(file_path+\"/\"+image_name)    \n",
     "\n",
     "for i in range(0,10):\n",
-    "    input_im = getRandomImage(\"D://datasets/face/validation/\")\n",
+    "    input_im = getRandomImage(\"D://face/validation/")\n",
     "    input_original = input_im.copy()\n",
     "    input_original = cv2.resize(input_original, None, fx=0.5, fy=0.5, interpolation = cv2.INTER_LINEAR)\n",
     "    \n",
