@@ -1,0 +1,524 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# Making a Faces Classifier with VGG16\n",
+    "\n",
+    "### Loading the VGG16 Model"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from keras.applications import VGG16\n",
+    "\n",
+    "# VGG16 was designed to work on 224 x 224 pixel input images sizes\n",
+    "img_rows = 224\n",
+    "img_cols = 224 \n",
+    "\n",
+    "#Loads the VGG16 model \n",
+    " VGGmodel = VGG16(weights = 'imagenet', \n",
+    "                 include_top = False, \n",
+    "                 input_shape = (img_rows, img_cols, 3))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Inpsecting each layer"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Let's print our layers \n",
+    "for (i,layer) in enumerate(model.layers):\n",
+    "    print(str(i) + \" \"+ layer.__class__.__name__, layer.trainable)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Let's freeze all layers except the top 4 "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from keras.applications import VGG16\n",
+    "\n",
+    "# VGG16 was designed to work on 224 x 224 pixel input images sizes\n",
+    "img_rows = 224\n",
+    "img_cols = 224 \n",
+    "\n",
+    "# Re-loads the VGG16 model without the top or FC layers\n",
+    "model = VGG16(weights = 'imagenet', \n",
+    "                 include_top = False, \n",
+    "                 input_shape = (img_rows, img_cols, 3))\n",
+    "\n",
+    "# Here we freeze the last 4 layers \n",
+    "# Layers are set to trainable as True by default\n",
+    "for layer in model.layers:\n",
+    "    layer.trainable = False\n",
+    "    \n",
+    "# Let's print our layers \n",
+    "for (i,layer) in enumerate(model.layers):\n",
+    "    print(str(i) + \" \"+ layer.__class__.__name__, layer.trainable)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Let's make a function that returns our FC Head"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "def addTopModel(bottom_model, num_classes, D=256):\n",
+    "    \"\"\"creates the top or head of the model that will be \n",
+    "    placed ontop of the bottom layers\"\"\"\n",
+    "    top_model = bottom_model.output\n",
+    "    top_model = Flatten(name = \"flatten\")(top_model)\n",
+    "    top_model = Dense(D, activation = \"relu\")(top_model)\n",
+    "    top_model = Dropout(0.3)(top_model)\n",
+    "    top_model = Dense(num_classes, activation = \"softmax\")(top_model)\n",
+    "    return top_model"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "model.input"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "model.layers"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Let's add our FC Head back onto VGG"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from keras.models import Sequential\n",
+    "from keras.layers import Dense, Dropout, Activation, Flatten\n",
+    "from keras.layers import Conv2D, MaxPooling2D, ZeroPadding2D\n",
+    "from keras.layers.normalization import BatchNormalization\n",
+    "from keras.models import Model\n",
+    "\n",
+    "num_classes = 3\n",
+    "\n",
+    "FC_Head = addTopModel(model, num_classes)\n",
+    "\n",
+    "modelnew = Model(inputs=model.input, outputs=FC_Head)\n",
+    "\n",
+    "print(modelnew.summary())"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Loading our Face Dataset"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from keras.preprocessing.image import ImageDataGenerator\n",
+    "\n",
+    "train_data_dir = 'D://datasets/face/training/'\n",
+    "validation_data_dir = 'D://datasets/face/validation/'\n",
+    "\n",
+    "train_datagen = ImageDataGenerator(\n",
+    "      rescale=1./255,\n",
+    "      rotation_range=20,\n",
+    "      width_shift_range=0.2,\n",
+    "      height_shift_range=0.2,\n",
+    "      horizontal_flip=True,\n",
+    "      fill_mode='nearest')\n",
+    " \n",
+    "validation_datagen = ImageDataGenerator(rescale=1./255)\n",
+    " \n",
+    "# Change the batchsize according to your system RAM\n",
+    "train_batchsize = 16\n",
+    "val_batchsize = 10\n",
+    " \n",
+    "train_generator = train_datagen.flow_from_directory(\n",
+    "        train_data_dir,\n",
+    "        target_size=(img_rows, img_cols),\n",
+    "        batch_size=train_batchsize,\n",
+    "        class_mode='categorical')\n",
+    " \n",
+    "validation_generator = validation_datagen.flow_from_directory(\n",
+    "        validation_data_dir,\n",
+    "        target_size=(img_rows, img_cols),\n",
+    "        batch_size=val_batchsize,\n",
+    "        class_mode='categorical',\n",
+    "        shuffle=False)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Training our top layers"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from keras.optimizers import RMSprop\n",
+    "from keras.callbacks import ModelCheckpoint, EarlyStopping\n",
+    "                   \n",
+    "checkpoint = ModelCheckpoint(\"face_reco_vgg.h5\",\n",
+    "                             monitor=\"val_loss\",\n",
+    "                             mode=\"min\",\n",
+    "                             save_best_only = True,\n",
+    "                             verbose=1)\n",
+    "\n",
+    "earlystop = EarlyStopping(monitor = 'val_loss', \n",
+    "                          min_delta = 0, \n",
+    "                          patience = 3,\n",
+    "                          verbose = 1,\n",
+    "                          restore_best_weights = True)\n",
+    "\n",
+    "# we put our call backs into a callback list\n",
+    "callbacks = [earlystop, checkpoint]\n",
+    "\n",
+    "# Note we use a very small learning rate \n",
+    "modelnew.compile(loss = 'categorical_crossentropy',\n",
+    "              optimizer = RMSprop(lr = 0.001),\n",
+    "              metrics = ['accuracy'])\n",
+    "\n",
+    "nb_train_samples = 216\n",
+    "nb_validation_samples = 72\n",
+    "epochs = 3\n",
+    "batch_size = 16\n",
+    "\n",
+    "history = modelnew.fit_generator(\n",
+    "    train_generator,\n",
+    "    steps_per_epoch = nb_train_samples // batch_size,\n",
+    "    epochs = epochs,\n",
+    "    callbacks = callbacks,\n",
+    "    validation_data = validation_generator,\n",
+    "    validation_steps = nb_validation_samples // batch_size)\n",
+    "\n",
+    "modelnew.save(\"face_reco_vgg.h5\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "from keras.models import load_model\n",
+    "\n",
+    "classifier = load_model('face_reco_vgg.h5')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import os\n",
+    "import cv2\n",
+    "import numpy as np\n",
+    "from os import listdir\n",
+    "from os.path import isfile, join\n",
+    "\n",
+    "face_dict = {\"[0]\": \"dhruv\", \n",
+    "                      \"[1]\": \"chandan\",\n",
+    "                      \"[2]\": \"anurika\"\n",
+    "                      }\n",
+    "\n",
+    "face_dict_name = {\"dhruv\": \"dhruv \", \n",
+    "                      \"chandan\": \"chandan\",\n",
+    "                      \"anurika\": \"anurika\"\n",
+    "                      }\n",
+    "\n",
+    "def draw_test(name, pred, im):\n",
+    "    face = face_dict[str(pred)]\n",
+    "    BLACK = [0,0,0]\n",
+    "    expanded_image = cv2.copyMakeBorder(im, 80, 0, 0, 100 ,cv2.BORDER_CONSTANT,value=BLACK)\n",
+    "    cv2.putText(expanded_image, face, (20, 60) , cv2.FONT_HERSHEY_SIMPLEX,1, (0,0,255), 2)\n",
+    "    cv2.imshow(name, expanded_image)\n",
+    "\n",
+    "def getRandomImage(path):\n",
+    "    \"\"\"function loads a random images from a random folder in our test path \"\"\"\n",
+    "    folders = list(filter(lambda x: os.path.isdir(os.path.join(path, x)), os.listdir(path)))\n",
+    "    random_directory = np.random.randint(0,len(folders))\n",
+    "    path_class = folders[random_directory]\n",
+    "    print(\"Class - \" + face_dict_name[str(path_class)])\n",
+    "    file_path = path + path_class\n",
+    "    file_names = [f for f in listdir(file_path) if isfile(join(file_path, f))]\n",
+    "    random_file_index = np.random.randint(0,len(file_names))\n",
+    "    image_name = file_names[random_file_index]\n",
+    "    return cv2.imread(file_path+\"/\"+image_name)    \n",
+    "\n",
+    "for i in range(0,10):\n",
+    "    input_im = getRandomImage(\"D://datasets/face/validation/\")\n",
+    "    input_original = input_im.copy()\n",
+    "    input_original = cv2.resize(input_original, None, fx=0.5, fy=0.5, interpolation = cv2.INTER_LINEAR)\n",
+    "    \n",
+    "    input_im = cv2.resize(input_im, (224, 224), interpolation = cv2.INTER_LINEAR)\n",
+    "    input_im = input_im / 255.\n",
+    "    input_im = input_im.reshape(1,224,224,3) \n",
+    "    \n",
+    "    # Get Prediction\n",
+    "    res = np.argmax(classifier.predict(input_im, 1, verbose = 0), axis=1)\n",
+    "    \n",
+    "    # Show image with predicted class\n",
+    "    draw_test(\"Prediction\", res, input_original) \n",
+    "    cv2.waitKey(0)\n",
+    "\n",
+    "cv2.destroyAllWindows()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "raw",
+   "metadata": {},
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.7.6"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
